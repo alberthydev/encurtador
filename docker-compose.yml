@@ -1,0 +1,153 @@
+name: url-shortener-stack
+
+services:
+  # ---------------- Aplicação ----------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: url-shortener:local
+    container_name: app
+    environment:
+      SPRING_PROFILES_ACTIVE: gelf
+      GRAYLOG_HOST: graylog
+      GRAYLOG_PORT: "12201"
+      SPRING_DATASOURCE_URL: jdbc:h2:file:/data/shortener
+      APP_BASE_URL: http://localhost:8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - app-data:/data
+    depends_on:
+      graylog-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    networks: [observability]
+
+  # ---------------- Métricas ----------------
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks: [observability]
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/url-shortener.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks: [observability]
+
+  # ---------------- Logs (Graylog + MongoDB + OpenSearch) ----------------
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    volumes:
+      - mongodb-data:/data/db
+    networks: [observability]
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    container_name: opensearch
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [observability]
+
+  graylog:
+    image: graylog/graylog:6.1
+    container_name: graylog
+    environment:
+      # SHA-256 da senha "admin" (usuário: admin) - TROCAR fora de ambiente de estudo
+      GRAYLOG_ROOT_PASSWORD_SHA2: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      GRAYLOG_PASSWORD_SECRET: change-me-this-is-a-long-secret-for-graylog-1234567890
+      GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+      GRAYLOG_HTTP_EXTERNAL_URI: http://localhost:9000/
+      GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      GRAYLOG_ROOT_TIMEZONE: America/Sao_Paulo
+    ports:
+      - "9000:9000"
+      - "12201:12201/udp"
+    volumes:
+      - graylog-data:/usr/share/graylog/data
+    depends_on:
+      mongodb:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+    networks: [observability]
+
+  # Cria o input GELF UDP automaticamente (nenhuma etapa manual)
+  graylog-init:
+    image: curlimages/curl:8.10.1
+    container_name: graylog-init
+    entrypoint: ["/bin/sh", "/init-input.sh"]
+    volumes:
+      - ./graylog/init-input.sh:/init-input.sh:ro
+    depends_on:
+      - graylog
+    restart: "no"
+    networks: [observability]
+
+  # ---------------- Gerador de tráfego (popula dashboards e logs) ----------------
+  loadgen:
+    image: curlimages/curl:8.10.1
+    container_name: loadgen
+    entrypoint: ["/bin/sh", "/loadgen.sh"]
+    environment:
+      APP_URL: http://app:8080
+    volumes:
+      - ./loadgen/loadgen.sh:/loadgen.sh:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [observability]
+
+volumes:
+  app-data:
+  prometheus-data:
+  grafana-data:
+  mongodb-data:
+  opensearch-data:
+  graylog-data:
+
+networks:
+  observability:
+    driver: bridge

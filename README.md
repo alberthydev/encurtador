@@ -95,7 +95,10 @@ Erros seguem o formato RFC 7807 (`application/problem+json`).
 ### Métricas (Prometheus + Grafana)
 - `spring-boot-starter-actuator` + `micrometer-registry-prometheus` expõem `/actuator/prometheus`.
 - Prometheus faz scrape de `app:8080` a cada 5 s (`prometheus/prometheus.yml`).
-- Métricas de negócio customizadas: `urlshortener_urls_created_total` e `urlshortener_redirects_total`.
+- Métricas de negócio customizadas: `urlshortener_urls_shortened_total` e `urlshortener_redirects_total`.
+  > O nome `urlshortener.urls.created` **não** pode ser usado: o cliente Prometheus remove sufixos
+  > reservados (`_total`, `_created`, `_bucket`, `_info`) do nome da métrica, e o contador seria
+  > exportado como `urlshortener_urls_total`. Por isso o contador chama-se `urlshortener.urls.shortened`.
 - Dashboard provisionado em `grafana/dashboards/url-shortener.json` com:
   - Memória **Heap** da JVM (usada / committed / máxima)
   - **CPU** do processo e do sistema
@@ -106,7 +109,7 @@ Erros seguem o formato RFC 7807 (`application/problem+json`).
 
 ### Logs (Graylog)
 - `logback-spring.xml` usa o appender **GELF/UDP** (`de.siegmar:logback-gelf`) quando o profile `gelf` está ativo (definido no compose).
-- Campos estruturados: `level_name`, `logger`, `thread_name`, `app_name`, `request_id`, `http_method`, `http_status`, `duration_ms` e stacktrace em `full_message`.
+- Campos estruturados: `level_name`, `logger_name`, `thread_name`, `app_name`, `request_id`, `http_method`, `http_status`, `duration_ms` e stacktrace em `full_message`.
 - Exemplos de busca no Graylog:
   - `level_name:ERROR`
   - `level_name:DEBUG AND app_name:url-shortener`

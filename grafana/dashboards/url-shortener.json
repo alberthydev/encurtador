@@ -24,7 +24,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Total de requisições HTTP",
+      "title": "Requisições HTTP",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -41,7 +41,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(http_server_requests_seconds_count{job=\"url-shortener\",uri!~\"/actuator.*\"})",
+          "expr": "sum(http_server_requests_seconds_count{job=\"url-shortener\",uri!~\"/actuator.*\"}) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true,
@@ -51,7 +51,16 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -87,7 +96,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(urlshortener_urls_created_total{job=\"url-shortener\"})",
+          "expr": "sum(urlshortener_urls_shortened_total{job=\"url-shortener\"}) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true,
@@ -97,7 +106,16 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -133,7 +151,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(urlshortener_redirects_total{job=\"url-shortener\"})",
+          "expr": "sum(urlshortener_redirects_total{job=\"url-shortener\"}) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true,
@@ -143,7 +161,16 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -189,7 +216,16 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "decimals": 0
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },

@@ -44,7 +44,11 @@ public class UrlShortenerService {
                                @Value("${app.base-url}") String baseUrl) {
         this.repository = repository;
         this.baseUrl = baseUrl;
-        this.createdCounter = Counter.builder("urlshortener.urls.created")
+        // Atenção: o cliente Prometheus remove os sufixos reservados (_total, _created,
+        // _bucket, _info) do nome da métrica. Por isso NÃO usar algo como
+        // "urlshortener.urls.created" — ele viraria "urlshortener_urls_total".
+        // Com este nome o valor exportado é "urlshortener_urls_shortened_total".
+        this.createdCounter = Counter.builder("urlshortener.urls.shortened")
                 .description("Total de URLs encurtadas").register(registry);
         this.redirectCounter = Counter.builder("urlshortener.redirects")
                 .description("Total de redirecionamentos realizados").register(registry);
